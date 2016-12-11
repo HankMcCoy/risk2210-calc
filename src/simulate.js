@@ -1,12 +1,15 @@
 import _ from 'lodash'
 
-const NUM_TRIALS = 1000
+const NUM_TRIALS = 50000
+const log = _.noop //console.log
 
 export default function simulate(opts) {
 	const trialOutcomes = new Array(NUM_TRIALS)
 	for (var i = 0; i < NUM_TRIALS; i++) {
 		trialOutcomes[i] = runBattle(opts)
 	}
+
+log('outcomes', trialOutcomes)
 
 	return calculateAnalysis(trialOutcomes)
 }
@@ -24,11 +27,16 @@ function runRoll(troopCounts) {
 	// Get the number and type of dice for each side
 	const attackDice = getDice(troopCounts, 'attack')
 	const defenseDice = getDice(troopCounts, 'defense')
+log('attack dice', attackDice)
+log('defense dice', defenseDice)
 
 	const attackRolls = getRolls(attackDice)
 	const defenseRolls = getRolls(defenseDice)
+log('attack rolls', attackRolls)
+log('defense rolls', defenseRolls)
 
 	const casualties = getCasualties(attackRolls, defenseRolls)
+log('casualties', casualties)
 
 	return getNextTroopCounts(troopCounts, casualties)
 }
@@ -45,15 +53,35 @@ function calculateAnalysis(trialOutcomes) {
 			{}
 		)
 
-	return {
+	const results = {
 		average: troopCountOutcomes.reduce((sum, x) => sum + (x / NUM_TRIALS), 0),
 		outcomeCounts: uniqueTroopCountOutcomes.map(
 			(troopCountOutcome) => ({
 				outcome: troopCountOutcome,
-				count: troopCountOutcomeCounts[troopCountOutcome],
+				pcnt: troopCountOutcomeCounts[troopCountOutcome] / NUM_TRIALS * 100,
 			})
 		)
 	}
+	results.winPcnt = results.outcomeCounts.reduce(
+		(winPcnt, outcomeCount) => {
+			if (results.average >= 0) {
+				if (outcomeCount.outcome >= 0) {
+					return winPcnt + outcomeCount.pcnt
+				}
+			} else {
+				if (outcomeCount.outcome < 0) {
+					return winPcnt + outcomeCount.pcnt
+				}
+			}
+
+			return winPcnt
+		},
+		0
+	)
+
+log(results)
+
+	return results
 }
 
 /* UTIL METHODS */
@@ -64,7 +92,7 @@ const maxDice = {
 const getDice = (troopCounts, side) => {
 	// Defenders always roll 8s if they have a space station
 	if (side === 'defense' && troopCounts.hasSpaceStation) {
-		const numDice = Math.max(
+		const numDice = Math.min(
 			numTroopsLeft(troopCounts, 'defense'),
 			maxDice.defense
 		)

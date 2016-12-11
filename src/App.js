@@ -1,4 +1,9 @@
 import React, { Component } from 'react'
+import {
+	VictoryAxis,
+	VictoryBar,
+	VictoryChart,
+} from 'victory'
 
 import simulate from './simulate'
 import './App.css'
@@ -8,9 +13,9 @@ class App extends Component {
 		super()
 
 		this.state = {
-			attackMods: 0,
-			attackCommanders: 0,
-			defenseMods: 0,
+			attackMods: 4,
+			attackCommanders: 1,
+			defenseMods: 3,
 			defenseCommanders: 0,
 			hasSpaceStation: false,
 			result: null,
@@ -18,51 +23,65 @@ class App extends Component {
 	}
 
 	render() {
+		const { result } = this.state
+
 		return (
-			<div>
-				<FlexRoot>
-					<Flex>
-						<h2>Attackers</h2>
-						<label>
-							How many MODs?
-							{this.renderBoundNumber('attackMods')}
-						</label>
-						<label>
-							How many Commanders?
-							{this.renderBoundNumber('attackCommanders')}
-						</label>
-					</Flex>
-					<Flex>
-						<h2>Defenders</h2>
-						<label>
-							How many MODs?
-							{this.renderBoundNumber('defenseMods')}
-						</label>
-						<label>
-							How many Commanders?
-							{this.renderBoundNumber('defenseCommanders')}
-						</label>
-						<label>
-							Is there a Space Station?
-							<input
-								type="checkbox"
-								checked={this.state.hasSpaceStation}
-								onClick={() => {
-									this.setState((state) => ({
-										hasSpaceStation: !state.hasSpaceStation,
-									}))
-								}}
-							/>
-						</label>
-					</Flex>
-				</FlexRoot>
-				<div>
-					<button onClick={this.simulate}>Simulate</button>
-				</div>
-				<div>
-					{JSON.stringify(this.state.results)}
-				</div>
-			</div>
+			<FlexRoot>
+				<Flex>
+					<FlexRoot direction="column">
+						<Flex>
+							<h2>Attackers</h2>
+							<label>
+								How many MODs?
+								{this.renderBoundNumber('attackMods')}
+							</label>
+							<label>
+								How many Commanders?
+								{this.renderBoundNumber('attackCommanders')}
+							</label>
+						</Flex>
+						<Flex>
+							<h2>Defenders</h2>
+							<label>
+								How many MODs?
+								{this.renderBoundNumber('defenseMods')}
+							</label>
+							<label>
+								How many Commanders?
+								{this.renderBoundNumber('defenseCommanders')}
+							</label>
+							<label>
+								Is there a Space Station?
+								<input
+									type="checkbox"
+									checked={this.state.hasSpaceStation}
+									onClick={() => {
+										this.setState((state) => ({
+											hasSpaceStation: !state.hasSpaceStation,
+										}))
+									}}
+								/>
+							</label>
+						</Flex>
+						<Flex>
+							<button onClick={this.simulate}>Simulate</button>
+						</Flex>
+					</FlexRoot>
+				</Flex>
+				<Flex>
+					{result && (
+						<div style={{ maxWidth: '800px' }}>
+							<h2>Expected Outcome</h2>
+							<div>
+								{result.average >= 0 ? 'Attacker ' : 'Defender '}
+								wins {result.winPcnt.toFixed(2)}% of the time with an average
+								of {Math.abs(result.average).toFixed(2)} pieces left.
+							</div>
+							<OutcomeChart outcomeCounts={result.outcomeCounts} />
+						</div>
+					)}
+				</Flex>
+			</FlexRoot>
 		)
 	}
 
@@ -80,9 +99,51 @@ class App extends Component {
 
 	simulate = () => {
 		this.setState({
-			results: simulate(this.state)
+			result: simulate(this.state)
 		})
 	}
+}
+
+const OutcomeChart = ({ outcomeCounts }) => {
+	const offset = outcomeCounts[0].outcome <= 0
+		? -outcomeCounts[0].outcome + 1
+		: 1
+	const data = outcomeCounts.map((val) => ({
+		outcome: val.outcome + offset,
+		pcnt: val.pcnt,
+	}))
+
+	return (
+		<VictoryChart domainPadding={20}>
+			<VictoryAxis
+				label="Survivors"
+				tickFormat={(tick) => {
+					const signedCount = tick - offset
+					const count = Math.abs(signedCount)
+
+					return `${count} ${signedCount > 0 ? 'attacker' : 'defender'}` +
+					(count != 1 ? 's' : '')
+				}}
+				style={{
+					axisLabel: { fontSize: 10 },
+					tickLabels: { fontSize: 8 },
+				}}
+			/>
+			<VictoryAxis
+				label="% chance"
+				dependentAxis
+				style={{
+					axisLabel: { fontSize: 10 },
+					tickLabels: { fontSize: 8 },
+				}}
+			/>
+			<VictoryBar
+				data={data}
+				x="outcome"
+				y="pcnt"
+			/>
+		</VictoryChart>
+	)
 }
 
 const FlexRoot = ({ children, direction }) => (
